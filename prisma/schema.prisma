@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Admin user model for authentication
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String // hashed with bcryptjs
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// Network model (MTN, Airtel, Glo, 9mobile, etc.)
+model Network {
+  id          String   @id @default(cuid())
+  name        String   @unique // "MTN", "Airtel", "Glo", "9mobile", etc.
+  description String?
+  imageData   String?  @db.Text // Base64 encoded image
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  packages DataPackage[]
+  orders   Order[]
+
+  @@map("networks")
+}
+
+// Data packages offered by each network
+model DataPackage {
+  id          String   @id @default(cuid())
+  networkId   String
+  name        String // e.g., "500MB", "1GB", "2GB", "10GB"
+  amount      String // e.g., "500MB", "1GB", "2GB"
+  price       Float // Price in Naira (NGN)
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  network Network @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  orders  Order[]
+
+  @@index([networkId])
+  @@map("data_packages")
+}
+
+// Order model - customer purchases
+model Order {
+  id String @id @default(cuid())
+
+  // Customer details
+  customerPhone String // Phone number of recipient (10+ digits)
+  networkId     String
+  packageId     String
+
+  // Payment details
+  amount           Float // Amount paid in Naira
+  paymentReference String @unique // Paystack reference
+  paymentStatus    String @default("pending") // pending, completed, failed
+
+  // Order status
+  status      String    @default("pending") // pending, processing, completed
+  completedAt DateTime? // When admin marked it as done
+
+  // Admin notes
+  adminNotes String?
+
+  // Timestamps (never delete orders)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  network Network     @relation(fields: [networkId], references: [id])
+  package DataPackage @relation(fields: [packageId], references: [id])
+
+  @@index([networkId])
+  @@index([packageId])
+  @@index([customerPhone])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+// Settings model - store Paystack API keys and other config
+model Settings {
+  id String @id @default(cuid())
+
+  // Paystack configuration
+  paystackPublicKey  String?
+  paystackSecretKey  String?
+  paystackTestMode   Boolean @default(true)
+
+  // Business info
+  businessName       String?
+  businessEmail      String?
+  businessPhone      String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}

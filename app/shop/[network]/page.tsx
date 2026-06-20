@@ -98,29 +98,19 @@ function PackagesContent() {
               <p className="text-gray-600">No packages available.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {packages.map((pkg) => (
                 <Link
                   key={pkg.id}
                   href={`/checkout?packageId=${pkg.id}&networkId=${networkId}`}
-                  className="group bg-white border-2 border-gray-200 hover:border-purple-500 rounded-3xl p-8 transition-all hover:shadow-2xl"
+                  className="group bg-white border-2 border-gray-200 hover:border-purple-500 rounded-xl p-4 transition-all hover:shadow-lg text-center"
                 >
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">📊</div>
-                  <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-purple-600 transition-colors">
-                    {pkg.name}
-                  </h3>
-                  <p className="text-gray-600 text-lg mb-6">{pkg.amount}</p>
-
-                  <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-6 mb-6">
-                    <p className="text-gray-600 text-sm font-bold mb-1">Price</p>
-                    <p className="text-4xl font-black text-purple-600">
-                      {CURRENCY.symbol}{pkg.price}
-                    </p>
-                  </div>
-
-                  <button className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-black rounded-xl group-hover:shadow-lg transition-all">
-                    Select →
-                  </button>
+                  <p className="text-lg font-black text-gray-900 mb-2 group-hover:text-purple-600">
+                    {pkg.amount}
+                  </p>
+                  <p className="text-xl font-black text-purple-600">
+                    {CURRENCY.symbol}{pkg.price}
+                  </p>
                 </Link>
               ))}
             </div>

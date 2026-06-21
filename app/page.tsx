@@ -10,12 +10,18 @@ interface DataPackage {
   amount: string;
   price: number;
   isActive: boolean;
+  networkId: string;
 }
 
-interface GroupedPackage {
+interface Network {
+  id: string;
+  name: string;
+}
+
+interface NetworkPackage {
+  networkName: string;
   amount: string;
-  minPrice: number;
-  count: number;
+  price: number;
 }
 
 interface Network {
@@ -27,42 +33,46 @@ interface Network {
 }
 
 function PricingDisplay() {
-  const [packages, setPackages] = useState<GroupedPackage[]>([]);
+  const [packages, setPackages] = useState<NetworkPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchPackages = async () => {
       try {
-        const response = await fetch('/api/admin/packages', {
+        // Fetch all networks
+        const networksRes = await fetch('/api/admin/networks', {
           headers: { 'Cache-Control': 'max-age=300' },
         });
-        if (response.ok) {
-          const data = await response.json();
-          const allPackages: DataPackage[] = data.packages || [];
+        const networksData = await networksRes.json();
+        const networks: Network[] = networksData.networks || [];
 
-          // Group by amount and find min price
-          const grouped = new Map<string, { minPrice: number; count: number }>();
-          allPackages.forEach((pkg) => {
-            if (pkg.isActive) {
-              const existing = grouped.get(pkg.amount) || { minPrice: pkg.price, count: 0 };
-              grouped.set(pkg.amount, {
-                minPrice: Math.min(existing.minPrice, pkg.price),
-                count: existing.count + 1,
-              });
-            }
-          });
+        // Fetch all packages
+        const packagesRes = await fetch('/api/admin/packages', {
+          headers: { 'Cache-Control': 'max-age=300' },
+        });
+        const packagesData = await packagesRes.json();
+        const allPackages: DataPackage[] = packagesData.packages || [];
 
-          // Convert to array and sort by price
-          const sorted = Array.from(grouped.entries())
-            .map(([amount, data]) => ({
-              amount,
-              minPrice: data.minPrice,
-              count: data.count,
-            }))
-            .sort((a, b) => a.minPrice - b.minPrice);
+        // Get first (smallest) package from each network
+        const networkPackages: NetworkPackage[] = networks
+          .map((network) => {
+            // Find all active packages for this network
+            const networkPkgs = allPackages.filter(
+              (pkg) => pkg.networkId === network.id && pkg.isActive
+            );
+            // Sort by price and get the cheapest/first one
+            const firstPkg = networkPkgs.sort((a, b) => a.price - b.price)[0];
+            return firstPkg
+              ? {
+                  networkName: network.name,
+                  amount: firstPkg.amount,
+                  price: firstPkg.price,
+                }
+              : null;
+          })
+          .filter((pkg) => pkg !== null) as NetworkPackage[];
 
-          setPackages(sorted);
-        }
+        setPackages(networkPackages);
       } catch (error) {
         console.error('Error fetching packages:', error);
       } finally {
@@ -75,9 +85,9 @@ function PricingDisplay() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-gray-100 rounded-2xl p-8 h-48 animate-pulse" />
+          <div key={i} className="bg-gray-100 rounded-lg p-4 h-32 animate-pulse" />
         ))}
       </div>
     );
@@ -92,26 +102,22 @@ function PricingDisplay() {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
       {packages.map((pkg) => (
         <Link
-          key={pkg.amount}
+          key={pkg.networkName}
           href="/shop"
-          className="group bg-white rounded-2xl p-8 border-2 border-purple-100 hover:border-purple-500 transition-all text-center hover:shadow-xl cursor-pointer"
+          className="group bg-white rounded-lg p-4 sm:p-5 border-2 border-purple-100 hover:border-purple-500 transition-all text-center hover:shadow-lg cursor-pointer"
         >
-          <p className="text-4xl sm:text-5xl font-black text-purple-600 mb-3 group-hover:scale-110 transition-transform">
+          <p className="text-xs sm:text-sm text-gray-600 mb-2 truncate font-semibold">
+            {pkg.networkName}
+          </p>
+          <p className="text-2xl sm:text-3xl font-black text-purple-600 mb-2 group-hover:scale-110 transition-transform">
             {pkg.amount}
           </p>
-          <p className="text-2xl sm:text-3xl font-black text-gray-900 mb-4 group-hover:text-purple-600">
-            {CURRENCY.symbol}{pkg.minPrice}
+          <p className="text-lg sm:text-xl font-black text-gray-900 group-hover:text-purple-600">
+            {CURRENCY.symbol}{pkg.price}
           </p>
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600">Best price across</p>
-            <p className="text-lg font-bold text-purple-600">{pkg.count} network{pkg.count !== 1 ? 's' : ''}</p>
-          </div>
-          <div className="mt-6 text-purple-600 font-bold group-hover:text-purple-700 transition-colors">
-            Shop Now →
-          </div>
         </Link>
       ))}
     </div>
@@ -280,10 +286,10 @@ export default function Home() {
 
       {/* Pricing Section */}
       <section className="py-20 bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-4">Available Packages</h2>
-            <p className="text-lg text-gray-600">Browse all data packages across networks</p>
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-4">Check Out Our Networks</h2>
+            <p className="text-lg text-gray-600">See the smallest package available from each network</p>
           </div>
           <PricingDisplay />
         </div>

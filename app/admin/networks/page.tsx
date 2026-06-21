@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import AdminNav from '@/app/admin/components/AdminNav';
 
 const networkSchema = z.object({
   name: z.string().min(1, 'Network name is required'),
@@ -127,27 +128,27 @@ export default function NetworksPage() {
       networks.map((network) => (
         <div
           key={network.id}
-          className="bg-slate-700/50 border border-slate-600 rounded-lg p-6 flex items-center justify-between hover:border-amber-500/50 transition-all"
+          className="bg-slate-700/50 border border-slate-600 rounded-lg p-4 sm:p-6 space-y-3 sm:space-y-0 hover:border-amber-500/50 transition-all"
         >
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             {network.imageData && (
               <img
                 src={network.imageData}
                 alt={network.name}
-                className="h-16 w-16 object-contain rounded"
+                className="h-12 sm:h-16 w-12 sm:w-16 object-contain rounded flex-shrink-0"
               />
             )}
-            <div>
-              <h3 className="text-xl font-black text-white">{network.name}</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg sm:text-xl font-black text-white truncate">{network.name}</h3>
               {network.description && (
-                <p className="text-slate-400 text-sm mt-1">{network.description}</p>
+                <p className="text-slate-400 text-xs sm:text-sm mt-1 truncate">{network.description}</p>
               )}
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end">
             <Link
               href={`/admin/packages?networkId=${network.id}`}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-all"
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-lg transition-all text-center"
             >
               Packages
             </Link>
@@ -158,13 +159,13 @@ export default function NetworksPage() {
                 setImagePreview(network.imageData || null);
                 setImageData(network.imageData || null);
               }}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-sm rounded-lg transition-all"
+              className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs sm:text-sm rounded-lg transition-all"
             >
               Edit
             </button>
             <button
               onClick={() => deleteNetwork(network.id)}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-lg transition-all"
+              className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm rounded-lg transition-all"
             >
               Delete
             </button>
@@ -184,27 +185,14 @@ export default function NetworksPage() {
 
   return (
     <div className="min-h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
-          <Link href="/admin/dashboard" className="flex items-center gap-2 hover:opacity-70">
-            <h1 className="text-2xl font-bold text-white">Networks</h1>
-          </Link>
-          <Link
-            href="/admin/dashboard"
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-bold text-sm text-white"
-          >
-            Back to Dashboard
-          </Link>
-        </div>
-      </header>
+      <AdminNav />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Form Section */}
           <div className="lg:col-span-1">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 sticky top-24">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 sm:p-8 sticky top-24">
               <h2 className="text-2xl font-black text-white mb-6">
                 {editingId ? 'Edit Network' : 'Add Network'}
               </h2>
@@ -279,9 +267,9 @@ export default function NetworksPage() {
 
           {/* Networks List */}
           <div className="lg:col-span-2">
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
-              <h2 className="text-2xl font-black text-white mb-6">Networks ({networks.length})</h2>
-              <div className="space-y-4">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 sm:p-8">
+              <h2 className="text-xl sm:text-2xl font-black text-white mb-6">Networks ({networks.length})</h2>
+              <div className="space-y-3 sm:space-y-4">
                 {networks.length === 0 ? (
                   <p className="text-gray-400">No networks yet. Add one to get started.</p>
                 ) : (

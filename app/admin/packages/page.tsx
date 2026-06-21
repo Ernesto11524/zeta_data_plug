@@ -2,11 +2,11 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CURRENCY } from '@/app/constants/theme';
+import AdminNav from '@/app/admin/components/AdminNav';
 
 const packageSchema = z.object({
   name: z.string().min(1, 'Package name is required'),
@@ -143,34 +143,16 @@ function PackagesContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-amber-500/20">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
-          <Link href="/admin/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
-              <span className="text-slate-900 font-black">Ζ</span>
-            </div>
-            <h1 className="text-2xl font-black text-white">ZETA Admin</h1>
-          </Link>
-          <div className="flex gap-4">
-            <Link href="/admin/networks" className="px-6 py-3 text-sm font-black text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-all">
-              Networks
-            </Link>
-            <Link href="/admin/dashboard" className="px-6 py-3 text-sm font-black text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-all">
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-900 text-white">
+      <AdminNav />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Network Selector */}
         {!selectedNetwork && (
-          <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-8 mb-8">
-            <h2 className="text-2xl font-black text-white mb-6">Select a Network</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 sm:p-8 mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-black text-white mb-6">Select a Network</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {networks.map((network) => (
                 <button
                   key={network.id}
@@ -178,9 +160,9 @@ function PackagesContent() {
                     setSelectedNetwork(network);
                     fetchPackages(network.id);
                   }}
-                  className="p-6 bg-gradient-to-br from-slate-700 to-slate-800 hover:from-amber-600 hover:to-amber-700 border border-slate-600 hover:border-amber-500 rounded-xl transition-all font-black text-white text-lg"
+                  className="p-3 sm:p-6 bg-blue-600 hover:bg-blue-700 border border-blue-500 hover:border-blue-400 rounded-lg transition-all font-black text-white text-sm sm:text-base"
                 >
-                  📱 {network.name}
+                  {network.name}
                 </button>
               ))}
             </div>
@@ -188,10 +170,10 @@ function PackagesContent() {
         )}
 
         {selectedNetwork && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
             {/* Form Section */}
             <div className="lg:col-span-1">
-              <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-8 sticky top-24">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 sm:p-8 sticky top-24">
                 <button
                   onClick={() => {
                     setSelectedNetwork(null);
@@ -282,48 +264,50 @@ function PackagesContent() {
 
             {/* Packages List */}
             <div className="lg:col-span-2">
-              <div className="bg-slate-800/80 border border-amber-500/30 rounded-2xl p-8">
-                <h2 className="text-2xl font-black text-white mb-6">Packages ({packages.length})</h2>
-                <div className="space-y-4">
+              <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 sm:p-8">
+                <h2 className="text-xl sm:text-2xl font-black text-white mb-6">Packages ({packages.length})</h2>
+                <div className="space-y-3 sm:space-y-4">
                   {packages.length === 0 ? (
                     <p className="text-slate-400">No packages for this network. Add one!</p>
                   ) : (
                     packages.map((pkg) => (
                       <div
                         key={pkg.id}
-                        className="bg-slate-700/50 border border-slate-600 rounded-lg p-6 flex justify-between items-center hover:border-amber-500/50 transition-all"
+                        className="bg-gray-700 border border-gray-600 rounded-lg p-4 sm:p-6 space-y-3 sm:space-y-0 hover:border-blue-400 transition-all"
                       >
-                        <div>
-                          <h3 className="text-xl font-black text-white">{pkg.name}</h3>
-                          <p className="text-slate-400 text-sm">
-                            {pkg.amount} • {CURRENCY.symbol}{pkg.price}
-                          </p>
-                          {!pkg.isActive && (
-                            <p className="text-red-400 text-sm font-bold">Inactive</p>
-                          )}
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => {
-                              setEditingId(pkg.id);
-                              reset({
-                                name: pkg.name,
-                                amount: pkg.amount,
-                                price: pkg.price,
-                                description: pkg.description,
-                                isActive: pkg.isActive,
-                              });
-                            }}
-                            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-sm rounded-lg transition-all"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deletePackage(pkg.id)}
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-lg transition-all"
-                          >
-                            Delete
-                          </button>
+                        <div className="flex justify-between items-start gap-3 sm:gap-0 sm:items-center">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg sm:text-xl font-black text-white truncate">{pkg.name}</h3>
+                            <p className="text-gray-400 text-xs sm:text-sm">
+                              {pkg.amount} • {CURRENCY.symbol}{pkg.price}
+                            </p>
+                            {!pkg.isActive && (
+                              <p className="text-red-400 text-xs sm:text-sm font-bold">Inactive</p>
+                            )}
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                setEditingId(pkg.id);
+                                reset({
+                                  name: pkg.name,
+                                  amount: pkg.amount,
+                                  price: pkg.price,
+                                  description: pkg.description,
+                                  isActive: pkg.isActive,
+                                });
+                              }}
+                              className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs sm:text-sm rounded-lg transition-all"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deletePackage(pkg.id)}
+                              className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm rounded-lg transition-all"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))

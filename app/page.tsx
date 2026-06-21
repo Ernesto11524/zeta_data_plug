@@ -4,12 +4,118 @@ import Link from 'next/link';
 import { useState, useEffect, useMemo } from 'react';
 import { CURRENCY } from '@/app/constants/theme';
 
+interface DataPackage {
+  id: string;
+  name: string;
+  amount: string;
+  price: number;
+  isActive: boolean;
+}
+
+interface GroupedPackage {
+  amount: string;
+  minPrice: number;
+  count: number;
+}
+
 interface Network {
   id: string;
   name: string;
   description?: string;
   imageData?: string;
   packages: { id: string }[];
+}
+
+function PricingDisplay() {
+  const [packages, setPackages] = useState<GroupedPackage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const response = await fetch('/api/admin/packages', {
+          headers: { 'Cache-Control': 'max-age=300' },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const allPackages: DataPackage[] = data.packages || [];
+
+          // Group by amount and find min price
+          const grouped = new Map<string, { minPrice: number; count: number }>();
+          allPackages.forEach((pkg) => {
+            if (pkg.isActive) {
+              const existing = grouped.get(pkg.amount) || { minPrice: pkg.price, count: 0 };
+              grouped.set(pkg.amount, {
+                minPrice: Math.min(existing.minPrice, pkg.price),
+                count: existing.count + 1,
+              });
+            }
+          });
+
+          // Convert to array and sort by price
+          const sorted = Array.from(grouped.entries())
+            .map(([amount, data]) => ({
+              amount,
+              minPrice: data.minPrice,
+              count: data.count,
+            }))
+            .sort((a, b) => a.minPrice - b.minPrice);
+
+          setPackages(sorted);
+        }
+      } catch (error) {
+        console.error('Error fetching packages:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPackages();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-gray-100 rounded-2xl p-8 h-48 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (packages.length === 0) {
+    return (
+      <div className="bg-gray-50 rounded-2xl p-12 text-center">
+        <p className="text-gray-600">No packages available yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      {packages.map((pkg) => (
+        <Link
+          key={pkg.amount}
+          href="/shop"
+          className="group bg-white rounded-2xl p-8 border-2 border-purple-100 hover:border-purple-500 transition-all text-center hover:shadow-xl cursor-pointer"
+        >
+          <p className="text-4xl sm:text-5xl font-black text-purple-600 mb-3 group-hover:scale-110 transition-transform">
+            {pkg.amount}
+          </p>
+          <p className="text-2xl sm:text-3xl font-black text-gray-900 mb-4 group-hover:text-purple-600">
+            {CURRENCY.symbol}{pkg.minPrice}
+          </p>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600">Best price across</p>
+            <p className="text-lg font-bold text-purple-600">{pkg.count} network{pkg.count !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="mt-6 text-purple-600 font-bold group-hover:text-purple-700 transition-colors">
+            Shop Now →
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
 }
 
 function NetworksDisplay() {
@@ -175,24 +281,11 @@ export default function Home() {
       {/* Pricing Section */}
       <section className="py-20 bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-4xl font-black text-gray-900 text-center mb-16">Simple Pricing</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[
-              { amount: '500MB', price: 5 },
-              { amount: '1GB', price: 10 },
-              { amount: '5GB', price: 40 },
-              { amount: '10GB', price: 75 }
-            ].map((plan) => (
-              <div key={plan.amount} className="bg-white rounded-2xl p-8 border-2 border-purple-100 hover:border-purple-500 transition-all text-center hover:shadow-xl">
-                <p className="text-5xl font-black text-purple-600 mb-2">{plan.amount}</p>
-                <p className="text-3xl font-black text-gray-900 mb-4">
-                  {CURRENCY.symbol}{plan.price}
-                </p>
-                <p className="text-gray-600">Get instant access</p>
-              </div>
-            ))}
+          <div className="text-center mb-16">
+            <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-4">Available Packages</h2>
+            <p className="text-lg text-gray-600">Browse all data packages across networks</p>
           </div>
+          <PricingDisplay />
         </div>
       </section>
 

@@ -123,42 +123,36 @@ function PackagesContent() {
               <p className="text-gray-600 text-lg">No packages available.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               {packages.map((pkg, index) => (
                 <Link
                   key={pkg.id}
                   href={`/checkout?packageId=${pkg.id}&networkId=${networkId}`}
-                  className={`group relative overflow-hidden rounded-2xl sm:rounded-3xl p-6 sm:p-8 transition-all duration-300 hover:shadow-2xl hover:scale-105 cursor-pointer bg-gradient-to-br ${getGradient(index)} text-white`}
+                  className={`group relative overflow-hidden rounded-xl p-4 sm:p-5 transition-all duration-300 hover:shadow-lg hover:scale-110 cursor-pointer bg-gradient-to-br ${getGradient(index)} text-white h-32 sm:h-40 flex flex-col justify-between`}
                 >
                   {/* Content */}
-                  <div className="relative z-10 h-full flex flex-col justify-between">
+                  <div className="relative z-10 flex flex-col justify-between h-full">
                     {/* Top */}
                     <div>
-                      <p className="text-3xl sm:text-4xl font-black mb-2 group-hover:scale-110 transition-transform origin-left">
+                      <p className="text-lg sm:text-2xl font-black mb-1 group-hover:scale-110 transition-transform origin-left">
                         {pkg.amount}
                       </p>
-                      {pkg.name && pkg.name !== pkg.amount && (
-                        <p className="text-sm sm:text-base font-semibold opacity-90">{pkg.name}</p>
-                      )}
                     </div>
 
                     {/* Bottom */}
                     <div>
-                      <p className="text-base sm:text-sm text-white/80 mb-3">Starting from</p>
-                      <div className="flex items-baseline gap-1">
-                        <p className="text-4xl sm:text-5xl font-black">
-                          {CURRENCY.symbol}{pkg.price}
-                        </p>
-                      </div>
-                      <p className="text-xs sm:text-sm text-white/70 mt-2">Instant activation</p>
+                      <p className="text-base sm:text-lg font-black text-white">
+                        {CURRENCY.symbol}{pkg.price}
+                      </p>
+                      <p className="text-xs text-white/70">Get it now</p>
                     </div>
                   </div>
 
                   {/* Decorative circle */}
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:bg-white/20 transition-all"></div>
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-8 -mt-8 group-hover:bg-white/20 transition-all"></div>
 
                   {/* Button overlay on hover */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all rounded-2xl sm:rounded-3xl"></div>
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all rounded-xl"></div>
                 </Link>
               ))}
             </div>

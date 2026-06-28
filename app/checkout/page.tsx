@@ -132,50 +132,44 @@ function CheckoutContent() {
           setIsProcessing(false);
           setError('Payment cancelled. You can try again.');
         },
-        onSuccess: async (response: any) => {
-          // Payment successful - verify and create order
-          try {
-            setError('✅ Payment received! Verifying with server...');
-            console.log('Payment successful, verifying:', response.reference);
+        onSuccess: (response: any) => {
+          // IMPORTANT: keep this callback synchronous — Paystack V1 does not
+          // await async callbacks, so using async/await here kills the Promise silently.
+          // Use .then()/.catch() chains instead.
+          setError('✅ Payment confirmed! Saving your order...');
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-            const verifyResponse = await fetch('/api/verify-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                reference: response.reference,
-                customerPhone: data.customerPhone,
-                networkId: network.id,
-                packageId: pkg.id,
-                amount: pkg.price,
-              }),
-              signal: controller.signal,
+          fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerPhone: data.customerPhone,
+              networkId: network.id,
+              packageId: pkg.id,
+              amount: pkg.price,
+              paymentReference: response.reference,
+              paymentStatus: 'completed',
+              status: 'processing',
+            }),
+          })
+            .then((res) => {
+              if (res.ok || res.status === 409) {
+                setIsProcessing(false);
+                setError('✅ Order placed successfully! Redirecting...');
+                setTimeout(() => router.push('/shop'), 2000);
+              } else {
+                return res.json().then((errData) => {
+                  setIsProcessing(false);
+                  setError(`❌ Could not save order: ${errData.message || 'Unknown error'}`);
+                });
+              }
+            })
+            .catch((err) => {
+              setIsProcessing(false);
+              setError(
+                `❌ Network error saving order. Your payment went through — please note your reference: ${response.reference} and contact support.`
+              );
+              console.error('Order save error:', err);
             });
-
-            clearTimeout(timeoutId);
-
-            if (verifyResponse.ok) {
-              const result = await verifyResponse.json();
-              console.log('Order created successfully:', result.order);
-              setIsProcessing(false);
-              setError('✅ Order created successfully! Redirecting...');
-              setTimeout(() => {
-                router.push('/shop');
-              }, 1500);
-            } else {
-              const errorData = await verifyResponse.json();
-              console.error('Verification failed:', errorData);
-              setIsProcessing(false);
-              setError(`❌ Order failed: ${errorData.message || 'Unknown error'}`);
-            }
-          } catch (error) {
-            console.error('Verification error:', error);
-            setIsProcessing(false);
-            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-            setError(`❌ Verification error: ${errorMsg}`);
-          }
         },
       });
 

@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { customerPhone, networkId, packageId, amount, paymentReference, paymentStatus } = body;
+    const { customerPhone, networkId, packageId, amount, paymentReference, paymentStatus, status } = body;
 
     // Validate phone number (must be 10 digits for Ghana)
     if (!customerPhone || customerPhone.length !== 10 || !/^\d+$/.test(customerPhone)) {
@@ -34,10 +34,10 @@ export async function POST(request: NextRequest) {
         customerPhone,
         networkId,
         packageId,
-        amount,
+        amount: Number(amount),
         paymentReference,
-        paymentStatus,
-        status: 'pending',
+        paymentStatus: paymentStatus || 'pending',
+        status: status || 'pending',
       },
       include: {
         network: { select: { name: true } },
@@ -50,9 +50,16 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating order:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Error creating order:', msg);
+    if (msg.includes('Unique constraint')) {
+      return NextResponse.json(
+        { message: 'Order already created for this payment' },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: `Server error: ${msg}` },
       { status: 500 }
     );
   } finally {

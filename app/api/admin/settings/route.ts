@@ -39,53 +39,33 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      paystackPublicKey,
-      paystackSecretKey,
-      paystackTestMode,
-      businessName,
-      businessEmail,
-      businessPhone,
-    } = body;
+    const { paystackPublicKey, paystackSecretKey, businessName, businessEmail, businessPhone } = body;
 
-    // Find existing settings or create new ones
+    // Only update secret key if a new non-empty value was provided
+    const secretKeyUpdate = paystackSecretKey && paystackSecretKey.trim() !== ''
+      ? { paystackSecretKey: paystackSecretKey.trim() }
+      : {};
+
+    const data = {
+      paystackPublicKey,
+      businessName: businessName || null,
+      businessEmail: businessEmail || null,
+      businessPhone: businessPhone || null,
+      ...secretKeyUpdate,
+    };
+
     let settings = await prisma.settings.findFirst();
 
     if (!settings) {
-      settings = await prisma.settings.create({
-        data: {
-          paystackPublicKey,
-          paystackSecretKey,
-          paystackTestMode,
-          businessName,
-          businessEmail,
-          businessPhone,
-        },
-      });
+      settings = await prisma.settings.create({ data });
     } else {
-      settings = await prisma.settings.update({
-        where: { id: settings.id },
-        data: {
-          paystackPublicKey,
-          paystackSecretKey,
-          paystackTestMode,
-          businessName,
-          businessEmail,
-          businessPhone,
-        },
-      });
+      settings = await prisma.settings.update({ where: { id: settings.id }, data });
     }
 
-    return NextResponse.json(
-      { message: 'Settings saved successfully', settings },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: 'Settings saved successfully' }, { status: 200 });
   } catch (error) {
     console.error('Error saving settings:', error);
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }

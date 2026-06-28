@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -45,12 +45,20 @@ function CheckoutContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paystackKey, setPaystackKey] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
   });
 
   const phoneNumber = watch('customerPhone');
+
+  // Auto-scroll to error/status message whenever it changes
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [error]);
 
   useEffect(() => {
     if (packageId && networkId) {
@@ -131,7 +139,7 @@ function CheckoutContent() {
             console.log('Payment successful, verifying:', response.reference);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
             const verifyResponse = await fetch('/api/verify-payment', {
               method: 'POST',
@@ -247,11 +255,14 @@ function CheckoutContent() {
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                 {/* Error/Status Message */}
                 {error && (
-                  <div className={`rounded-2xl p-4 text-sm font-bold ${
-                    error.includes('❌')
-                      ? 'bg-red-50 border-2 border-red-200 text-red-700'
-                      : 'bg-green-50 border-2 border-green-200 text-green-700'
-                  }`}>
+                  <div
+                    ref={errorRef}
+                    className={`rounded-2xl p-4 text-base font-bold ${
+                      error.includes('❌')
+                        ? 'bg-red-50 border-2 border-red-200 text-red-700'
+                        : 'bg-green-50 border-2 border-green-200 text-green-700'
+                    }`}
+                  >
                     {error}
                   </div>
                 )}

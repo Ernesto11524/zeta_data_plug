@@ -16,7 +16,15 @@ export async function GET() {
       });
     }
 
-    return NextResponse.json({ settings }, { status: 200 });
+    // Merge env var keys as fallback so Vercel deployments work
+    // without requiring the DB to have keys pre-loaded
+    const responseSettings = {
+      ...settings,
+      paystackPublicKey: settings.paystackPublicKey || process.env.PAYSTACK_PUBLIC_KEY || null,
+      paystackSecretKey: undefined, // never expose secret key to client
+    };
+
+    return NextResponse.json({ settings: responseSettings }, { status: 200 });
   } catch (error) {
     console.error('Error fetching settings:', error);
     return NextResponse.json(

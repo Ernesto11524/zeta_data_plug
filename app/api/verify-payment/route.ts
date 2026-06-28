@@ -8,96 +8,151 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { reference, customerPhone, networkId, packageId, amount } = body;
 
-    // Fetch Paystack settings from database
-    const settings = await prisma.settings.findFirst();
-    if (!settings?.paystackSecretKey) {
+    console.log('[verify-payment] Request:', { reference, customerPhone, networkId, packageId, amount });
+
+    if (!reference || !customerPhone || !networkId || !packageId || amount === undefined) {
+      return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Get Paystack secret key — env var takes priority over database
+    let secretKey: string | null = process.env.PAYSTACK_SECRET_KEY || null;
+
+    if (!secretKey) {
+      try {
+        const settings = await prisma.settings.findFirst();
+        secretKey = settings?.paystackSecretKey || null;
+      } catch (dbErr) {
+        console.error('[verify-payment] DB error fetching settings:', dbErr);
+      }
+    }
+
+    if (!secretKey) {
+      console.error('[verify-payment] No Paystack secret key found in env or database');
       return NextResponse.json(
-        { message: 'Paystack not configured' },
+        { message: 'Paystack secret key not configured. Please contact support.' },
         { status: 400 }
       );
     }
 
+    console.log('[verify-payment] Using secret key starting with:', secretKey.substring(0, 15));
+
     // Verify payment with Paystack
-    const paystackResponse = await fetch(
-      `https://api.paystack.co/transaction/verify/${reference}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${settings.paystackSecretKey}`,
-        },
+    let paystackData: any;
+    try {
+      const paystackResponse = await fetch(
+        `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${secretKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const responseText = await paystackResponse.text();
+      console.log('[verify-payment] Paystack raw response:', responseText.substring(0, 500));
+
+      try {
+        paystackData = JSON.parse(responseText);
+      } catch {
+        console.error('[verify-payment] Paystack returned non-JSON:', responseText.substring(0, 200));
+        return NextResponse.json(
+          { message: 'Paystack returned an invalid response. Please try again.' },
+          { status: 500 }
+        );
       }
-    );
-
-    const paystackData = await paystackResponse.json();
-
-    if (!paystackData.status) {
-      console.error('Paystack error:', paystackData);
+    } catch (fetchErr) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      console.error('[verify-payment] Failed to reach Paystack API:', msg);
       return NextResponse.json(
-        { message: paystackData.message || 'Payment verification failed' },
+        { message: `Could not reach Paystack: ${msg}` },
+        { status: 502 }
+      );
+    }
+
+    if (!paystackData.status || !paystackData.data) {
+      console.error('[verify-payment] Paystack error response:', paystackData);
+      return NextResponse.json(
+        { message: paystackData.message || 'Paystack verification failed' },
         { status: 400 }
       );
     }
 
     if (paystackData.data.status !== 'success') {
-      console.error('Payment not successful:', paystackData.data.status);
+      console.error('[verify-payment] Payment not successful:', paystackData.data.status);
       return NextResponse.json(
-        { message: `Payment ${paystackData.data.status}` },
+        { message: `Payment status is "${paystackData.data.status}" — payment was not completed` },
         { status: 400 }
       );
     }
 
-    // Verify amount matches
-    const paystackAmount = paystackData.data.amount / 100; // Convert from cents
-    if (paystackAmount !== amount) {
+    // Lenient amount check — allow up to 1 pesewa difference (floating point safety)
+    const paystackAmount = paystackData.data.amount / 100;
+    const expectedAmount = Number(amount);
+    if (Math.abs(paystackAmount - expectedAmount) > 0.01) {
+      console.error('[verify-payment] Amount mismatch — paystack:', paystackAmount, 'expected:', expectedAmount);
       return NextResponse.json(
-        { message: 'Amount mismatch' },
+        { message: `Amount mismatch: Paystack received ₵${paystackAmount} but package costs ₵${expectedAmount}` },
         { status: 400 }
       );
     }
 
-    // Verify package exists
-    const pkg = await prisma.dataPackage.findUnique({
-      where: { id: packageId },
-    });
+    // Check package exists
+    let pkg;
+    try {
+      pkg = await prisma.dataPackage.findUnique({ where: { id: packageId } });
+    } catch (dbErr) {
+      console.error('[verify-payment] DB error finding package:', dbErr);
+      return NextResponse.json({ message: 'Database error checking package' }, { status: 500 });
+    }
 
     if (!pkg) {
-      return NextResponse.json(
-        { message: 'Package not found' },
-        { status: 404 }
-      );
+      console.error('[verify-payment] Package not found:', packageId);
+      return NextResponse.json({ message: 'Package not found' }, { status: 404 });
     }
 
-    // Create order with successful payment
-    const order = await prisma.order.create({
-      data: {
-        customerPhone,
-        networkId,
-        packageId,
-        amount,
-        paymentReference: reference,
-        paymentStatus: 'completed',
-        status: 'processing', // Order is processing, waiting for admin fulfillment
-      },
-      include: {
-        network: { select: { name: true } },
-        package: { select: { name: true, amount: true } },
-      },
-    });
+    // Create the order
+    let order;
+    try {
+      order = await prisma.order.create({
+        data: {
+          customerPhone,
+          networkId,
+          packageId,
+          amount: expectedAmount,
+          paymentReference: reference,
+          paymentStatus: 'completed',
+          status: 'processing',
+        },
+        include: {
+          network: { select: { name: true } },
+          package: { select: { name: true, amount: true } },
+        },
+      });
+    } catch (dbErr) {
+      const msg = dbErr instanceof Error ? dbErr.message : String(dbErr);
+      console.error('[verify-payment] DB error creating order:', msg);
+      // Duplicate reference — payment already processed
+      if (msg.includes('Unique constraint')) {
+        return NextResponse.json(
+          { message: 'Order already created for this payment. Check admin dashboard.' },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ message: `Database error: ${msg}` }, { status: 500 });
+    }
 
+    console.log('[verify-payment] Order created successfully:', order.id);
     return NextResponse.json(
-      {
-        message: 'Payment verified and order created',
-        order,
-      },
+      { message: 'Payment verified and order created', order },
       { status: 201 }
     );
+
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error('Payment verification error:', errorMsg);
-    return NextResponse.json(
-      { message: `Server error: ${errorMsg}` },
-      { status: 500 }
-    );
+    console.error('[verify-payment] Unhandled exception:', errorMsg);
+    return NextResponse.json({ message: `Server error: ${errorMsg}` }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }

@@ -116,10 +116,10 @@ function CheckoutContent() {
       // Initialize Paystack payment
       const handler = window.PaystackPop.setup({
         key: paystackKey,
-        email: `${data.customerPhone}@zetadata.com`,
-        amount: pkg.price * 100, // Convert to cents
+        email: 'customer@zetadata.com',
+        amount: Math.round(pkg.price * 100), // Convert to cents
         currency: 'GHS',
-        ref: `ZETA_${Date.now()}`,
+        ref: `ZETA_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         onClose: () => {
           setIsProcessing(false);
           setError('Payment cancelled. You can try again.');

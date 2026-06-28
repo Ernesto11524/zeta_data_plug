@@ -30,9 +30,18 @@ export async function POST(request: NextRequest) {
 
     const paystackData = await paystackResponse.json();
 
-    if (!paystackData.status || paystackData.data.status !== 'success') {
+    if (!paystackData.status) {
+      console.error('Paystack error:', paystackData);
       return NextResponse.json(
-        { message: 'Payment verification failed' },
+        { message: paystackData.message || 'Payment verification failed' },
+        { status: 400 }
+      );
+    }
+
+    if (paystackData.data.status !== 'success') {
+      console.error('Payment not successful:', paystackData.data.status);
+      return NextResponse.json(
+        { message: `Payment ${paystackData.data.status}` },
         { status: 400 }
       );
     }

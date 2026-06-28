@@ -46,7 +46,7 @@ function CheckoutContent() {
   const [paystackKey, setPaystackKey] = useState<string>('');
   const [error, setError] = useState<string>('');
 
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<CheckoutFormData>({
+  const { register, handleSubmit, formState: { errors }, watch, reset } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
   });
 

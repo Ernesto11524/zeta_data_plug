@@ -44,6 +44,7 @@ function CheckoutContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paystackKey, setPaystackKey] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
   const { register, handleSubmit, formState: { errors }, watch } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -105,25 +106,29 @@ function CheckoutContent() {
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (!pkg || !network || !paystackKey) {
-      alert('❌ Payment system not configured. Please try again later.');
+      setError('❌ Payment system not configured. Please try again later.');
       return;
     }
+    setError('');
     setIsProcessing(true);
 
     try {
       // Initialize Paystack payment
       const handler = window.PaystackPop.setup({
         key: paystackKey,
-        email: `customer@zetadata.com`,
+        email: `${data.customerPhone}@zetadata.com`,
         amount: pkg.price * 100, // Convert to cents
         currency: 'GHS',
-        ref: `${Date.now()}`,
+        ref: `ZETA_${Date.now()}`,
         onClose: () => {
           setIsProcessing(false);
+          setError('Payment cancelled. You can try again.');
         },
         onSuccess: async (response: any) => {
           // Payment successful - verify and create order
           try {
+            setError('✅ Payment received! Verifying...');
+
             const verifyResponse = await fetch('/api/verify-payment', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -138,15 +143,18 @@ function CheckoutContent() {
 
             if (verifyResponse.ok) {
               const result = await verifyResponse.json();
-              alert('✅ Payment successful! Your order has been created.');
-              router.push('/shop');
+              setError('✅ Order created successfully!');
+              setTimeout(() => {
+                router.push('/shop');
+              }, 2000);
             } else {
-              alert('❌ Payment verification failed.');
+              const errorData = await verifyResponse.json();
+              setError(`❌ Verification failed: ${errorData.message}`);
               setIsProcessing(false);
             }
           } catch (error) {
             console.error('Verification error:', error);
-            alert('❌ Error verifying payment.');
+            setError('❌ Error verifying payment. Please contact support.');
             setIsProcessing(false);
           }
         },
@@ -155,7 +163,7 @@ function CheckoutContent() {
       handler.openIframe();
     } catch (error) {
       console.error('Error:', error);
-      alert('❌ Payment error. Please try again.');
+      setError('❌ Payment system error. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -226,6 +234,17 @@ function CheckoutContent() {
               <h2 className="text-3xl font-black text-gray-900 mb-8">Enter Phone Number</h2>
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                {/* Error/Status Message */}
+                {error && (
+                  <div className={`rounded-2xl p-4 text-sm font-bold ${
+                    error.includes('❌')
+                      ? 'bg-red-50 border-2 border-red-200 text-red-700'
+                      : 'bg-green-50 border-2 border-green-200 text-green-700'
+                  }`}>
+                    {error}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-lg font-black text-gray-900 mb-4">
                     Recipient Phone
@@ -284,12 +303,16 @@ function CheckoutContent() {
                   >
                     {isProcessing ? 'Processing...' : paystackKey ? '💳 Pay with Paystack' : 'Payment Unavailable'}
                   </button>
-                  <Link
-                    href="/shop"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError('');
+                      reset();
+                    }}
                     className="px-8 py-5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-black rounded-2xl transition-all"
                   >
-                    Cancel
-                  </Link>
+                    Clear
+                  </button>
                 </div>
               </form>
             </div>

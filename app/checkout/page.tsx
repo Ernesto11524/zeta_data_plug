@@ -132,10 +132,8 @@ function CheckoutContent() {
           setIsProcessing(false);
           setError('Payment cancelled. You can try again.');
         },
-        onSuccess: (response: any) => {
-          // IMPORTANT: keep this callback synchronous — Paystack V1 does not
-          // await async callbacks, so using async/await here kills the Promise silently.
-          // Use .then()/.catch() chains instead.
+        callback: (response: any) => {
+          // Paystack V1 uses "callback" not "onSuccess" — wrong name = function never called
           setError('✅ Payment confirmed! Saving your order...');
 
           fetch('/api/orders', {

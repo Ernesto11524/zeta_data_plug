@@ -92,9 +92,10 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Payment verification error:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Payment verification error:', errorMsg);
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: `Server error: ${errorMsg}` },
       { status: 500 }
     );
   } finally {

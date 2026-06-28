@@ -127,7 +127,11 @@ function CheckoutContent() {
         onSuccess: async (response: any) => {
           // Payment successful - verify and create order
           try {
-            setError('✅ Payment received! Verifying...');
+            setError('✅ Payment received! Verifying with server...');
+            console.log('Payment successful, verifying:', response.reference);
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
             const verifyResponse = await fetch('/api/verify-payment', {
               method: 'POST',
@@ -139,10 +143,14 @@ function CheckoutContent() {
                 packageId: pkg.id,
                 amount: pkg.price,
               }),
+              signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
 
             if (verifyResponse.ok) {
               const result = await verifyResponse.json();
+              console.log('Order created successfully:', result.order);
               setIsProcessing(false);
               setError('✅ Order created successfully! Redirecting...');
               setTimeout(() => {
@@ -150,13 +158,15 @@ function CheckoutContent() {
               }, 1500);
             } else {
               const errorData = await verifyResponse.json();
+              console.error('Verification failed:', errorData);
               setIsProcessing(false);
-              setError(`❌ Verification failed: ${errorData.message}`);
+              setError(`❌ Order failed: ${errorData.message || 'Unknown error'}`);
             }
           } catch (error) {
             console.error('Verification error:', error);
             setIsProcessing(false);
-            setError(`❌ Error verifying payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            setError(`❌ Verification error: ${errorMsg}`);
           }
         },
       });

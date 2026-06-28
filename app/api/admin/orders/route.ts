@@ -22,7 +22,7 @@ export async function GET() {
     // Calculate stats
     const stats = {
       totalOrders: orders.length,
-      pendingOrders: orders.filter((o) => o.status === 'pending').length,
+      pendingOrders: orders.filter((o) => o.status === 'pending' || o.status === 'processing').length,
       completedOrders: orders.filter((o) => o.status === 'completed').length,
       totalRevenue: orders
         .filter((o) => o.paymentStatus === 'completed')

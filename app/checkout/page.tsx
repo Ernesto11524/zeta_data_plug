@@ -8,6 +8,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CURRENCY } from '@/app/constants/theme';
 
+declare global {
+  interface Window {
+    PaystackPop: any;
+  }
+}
+
 const checkoutSchema = z.object({
   customerPhone: z.string()
     .regex(/^\d{10}$/, 'Phone must be 10 digits'),
@@ -37,6 +43,7 @@ function CheckoutContent() {
   const [network, setNetwork] = useState<Network | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paystackKey, setPaystackKey] = useState<string>('');
 
   const { register, handleSubmit, formState: { errors }, watch } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -49,6 +56,30 @@ function CheckoutContent() {
       fetchData();
     }
   }, [packageId, networkId]);
+
+  useEffect(() => {
+    // Load Paystack script
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v1/inline.js';
+    document.body.appendChild(script);
+
+    // Fetch Paystack settings
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/admin/settings');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.settings?.paystackPublicKey) {
+            setPaystackKey(data.settings.paystackPublicKey);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -73,30 +104,58 @@ function CheckoutContent() {
   };
 
   const onSubmit = async (data: CheckoutFormData) => {
-    if (!pkg || !network) return;
+    if (!pkg || !network || !paystackKey) {
+      alert('❌ Payment system not configured. Please try again later.');
+      return;
+    }
     setIsProcessing(true);
 
     try {
-      const orderResponse = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerPhone: data.customerPhone,
-          networkId: network.id,
-          packageId: pkg.id,
-          amount: pkg.price,
-          paymentReference: 'pending_' + Date.now(),
-          paymentStatus: 'pending',
-        }),
+      // Initialize Paystack payment
+      const handler = window.PaystackPop.setup({
+        key: paystackKey,
+        email: `customer@zetadata.com`,
+        amount: pkg.price * 100, // Convert to cents
+        currency: 'GHS',
+        ref: `${Date.now()}`,
+        onClose: () => {
+          setIsProcessing(false);
+        },
+        onSuccess: async (response: any) => {
+          // Payment successful - verify and create order
+          try {
+            const verifyResponse = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                reference: response.reference,
+                customerPhone: data.customerPhone,
+                networkId: network.id,
+                packageId: pkg.id,
+                amount: pkg.price,
+              }),
+            });
+
+            if (verifyResponse.ok) {
+              const result = await verifyResponse.json();
+              alert('✅ Payment successful! Your order has been created.');
+              router.push('/shop');
+            } else {
+              alert('❌ Payment verification failed.');
+              setIsProcessing(false);
+            }
+          } catch (error) {
+            console.error('Verification error:', error);
+            alert('❌ Error verifying payment.');
+            setIsProcessing(false);
+          }
+        },
       });
 
-      if (orderResponse.ok) {
-        alert('✅ Order created! Payment coming soon.');
-        router.push('/shop');
-      }
+      handler.openIframe();
     } catch (error) {
       console.error('Error:', error);
-    } finally {
+      alert('❌ Payment error. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -220,10 +279,10 @@ function CheckoutContent() {
                 <div className="flex gap-4 pt-4">
                   <button
                     type="submit"
-                    disabled={isProcessing || !!errors.customerPhone}
+                    disabled={isProcessing || !!errors.customerPhone || !paystackKey}
                     className="flex-1 px-8 py-5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 disabled:from-gray-400 disabled:to-gray-500 text-white font-black text-lg rounded-2xl transition-all disabled:cursor-not-allowed"
                   >
-                    {isProcessing ? 'Processing...' : 'Proceed to Payment'}
+                    {isProcessing ? 'Processing...' : paystackKey ? '💳 Pay with Paystack' : 'Payment Unavailable'}
                   </button>
                   <Link
                     href="/shop"

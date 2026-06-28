@@ -143,19 +143,20 @@ function CheckoutContent() {
 
             if (verifyResponse.ok) {
               const result = await verifyResponse.json();
-              setError('✅ Order created successfully!');
+              setIsProcessing(false);
+              setError('✅ Order created successfully! Redirecting...');
               setTimeout(() => {
                 router.push('/shop');
-              }, 2000);
+              }, 1500);
             } else {
               const errorData = await verifyResponse.json();
-              setError(`❌ Verification failed: ${errorData.message}`);
               setIsProcessing(false);
+              setError(`❌ Verification failed: ${errorData.message}`);
             }
           } catch (error) {
             console.error('Verification error:', error);
-            setError('❌ Error verifying payment. Please contact support.');
             setIsProcessing(false);
+            setError(`❌ Error verifying payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
           }
         },
       });

@@ -14,9 +14,11 @@ export default function AdminNav() {
   };
 
   const navItems = [
+    { label: 'Orders', href: '/admin/orders' },
     { label: 'Networks', href: '/admin/networks' },
     { label: 'Packages', href: '/admin/packages' },
     { label: 'Settings', href: '/admin/settings' },
+    { label: 'Homepage', href: '/' },
   ];
 
   return (

@@ -2,19 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { CURRENCY } from '@/app/constants/theme';
 import AdminNav from '@/app/admin/components/AdminNav';
-
-interface Order {
-  id: string;
-  customerPhone: string;
-  amount: number;
-  status: string;
-  paymentStatus: string;
-  createdAt: string;
-  package: { name: string; amount: string };
-  network: { name: string };
-}
 
 interface Stats {
   totalOrders: number;
@@ -23,15 +13,25 @@ interface Stats {
   totalRevenue: number;
 }
 
+interface RecentOrder {
+  id: string;
+  customerPhone: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+  package: { amount: string };
+  network: { name: string };
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
-  const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalOrders: 0,
     pendingOrders: 0,
     completedOrders: 0,
     totalRevenue: 0,
   });
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -45,30 +45,16 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/admin/orders');
-      if (response.ok) {
-        const data = await response.json();
-        setOrders(data.orders || []);
+      const res = await fetch('/api/admin/orders');
+      if (res.ok) {
+        const data = await res.json();
         setStats(data.stats || {});
+        setRecentOrders((data.orders || []).slice(0, 5));
       }
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (e) {
+      console.error(e);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-
-  const handleCompleteOrder = async (orderId: string) => {
-    try {
-      const response = await fetch(`/api/admin/orders/${orderId}/complete`, {
-        method: 'PATCH',
-      });
-      if (response.ok) {
-        fetchData();
-      }
-    } catch (error) {
-      console.error('Error:', error);
     }
   };
 
@@ -80,143 +66,92 @@ export default function AdminDashboard() {
     );
   }
 
+  const statCards = [
+    {
+      label: 'Total Orders',
+      value: stats.totalOrders,
+      color: 'text-white',
+      href: '/admin/orders',
+    },
+    {
+      label: 'Pending',
+      value: stats.pendingOrders,
+      color: 'text-yellow-400',
+      href: '/admin/orders?filter=processing',
+    },
+    {
+      label: 'Completed',
+      value: stats.completedOrders,
+      color: 'text-green-400',
+      href: '/admin/orders?filter=completed',
+    },
+    {
+      label: 'Revenue',
+      value: `${CURRENCY.symbol}${stats.totalRevenue}`,
+      color: 'text-blue-400',
+      href: '/admin/orders',
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <AdminNav />
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        {/* Stats */}
+        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+
+        {/* Clickable Stat Cards */}
         <div className="grid grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <p className="text-gray-400 text-sm mb-2">Total Orders</p>
-            <p className="text-4xl font-bold text-white">{stats.totalOrders}</p>
-          </div>
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <p className="text-gray-400 text-sm mb-2">Pending</p>
-            <p className="text-4xl font-bold text-yellow-400">{stats.pendingOrders}</p>
-          </div>
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <p className="text-gray-400 text-sm mb-2">Completed</p>
-            <p className="text-4xl font-bold text-green-400">{stats.completedOrders}</p>
-          </div>
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <p className="text-gray-400 text-sm mb-2">Revenue</p>
-            <p className="text-4xl font-bold text-blue-400">
-              {CURRENCY.symbol}{stats.totalRevenue}
-            </p>
-          </div>
+          {statCards.map((card) => (
+            <Link
+              key={card.label}
+              href={card.href}
+              className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-blue-500 hover:bg-gray-750 transition-all group cursor-pointer"
+            >
+              <p className="text-gray-400 text-sm mb-2">{card.label}</p>
+              <p className={`text-4xl font-bold ${card.color}`}>{card.value}</p>
+              <p className="text-xs text-gray-500 mt-2 group-hover:text-blue-400 transition-colors">
+                View orders →
+              </p>
+            </Link>
+          ))}
         </div>
 
-        {/* Orders Table */}
+        {/* Recent Orders Preview */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-          <div className="bg-gray-700 px-4 sm:px-6 py-4 border-b border-gray-600">
-            <h2 className="text-xl font-bold">Orders</h2>
+          <div className="bg-gray-700 px-4 sm:px-6 py-4 border-b border-gray-600 flex justify-between items-center">
+            <h2 className="text-lg font-bold">Recent Orders</h2>
+            <Link
+              href="/admin/orders"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-bold transition-all"
+            >
+              View All
+            </Link>
           </div>
 
-          {orders.length === 0 ? (
-            <div className="p-8 sm:p-12 text-center text-gray-400">
-              <p>No orders yet</p>
-            </div>
+          {recentOrders.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">No orders yet</div>
           ) : (
-            <>
-              {/* Desktop Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-700 border-b border-gray-600">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Phone</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Network</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Package</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Amount</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Payment</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-300">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((order, i) => (
-                      <tr key={order.id} className={i % 2 === 0 ? 'bg-gray-800' : 'bg-gray-750'}>
-                        <td className="px-4 py-3 text-xs text-white">{order.customerPhone}</td>
-                        <td className="px-4 py-3 text-xs text-white">{order.network.name}</td>
-                        <td className="px-4 py-3 text-xs text-white">{order.package.amount}</td>
-                        <td className="px-4 py-3 text-xs text-white font-bold">{CURRENCY.symbol}{order.amount}</td>
-                        <td className="px-4 py-3 text-xs">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${order.status === 'completed' ? 'bg-green-900 text-green-300' : order.status === 'processing' ? 'bg-blue-900 text-blue-300' : 'bg-yellow-900 text-yellow-300'}`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${order.paymentStatus === 'completed' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                            {order.paymentStatus}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-xs">
-                          {order.status !== 'completed' && (
-                            <button
-                              onClick={() => handleCompleteOrder(order.id)}
-                              className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold transition-all"
-                            >
-                              ✓
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Cards */}
-              <div className="md:hidden space-y-3 p-4">
-                {orders.map((order) => (
-                  <div key={order.id} className="bg-gray-700 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <p className="text-xs text-gray-400">Phone</p>
-                        <p className="font-bold text-white">{order.customerPhone}</p>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${order.status === 'completed' ? 'bg-green-900 text-green-300' : order.status === 'processing' ? 'bg-blue-900 text-blue-300' : 'bg-yellow-900 text-yellow-300'}`}>
-                        {order.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-400">Network</p>
-                        <p className="font-bold text-white">{order.network.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Package</p>
-                        <p className="font-bold text-white">{order.package.amount}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Amount</p>
-                        <p className="font-bold text-white">{CURRENCY.symbol}{order.amount}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Payment</p>
-                        <span className={`px-2 py-1 rounded text-xs font-bold inline-block ${order.paymentStatus === 'completed' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-                          {order.paymentStatus}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-600">
-                      <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleDateString()}</p>
-                      {order.status !== 'completed' && (
-                        <button
-                          onClick={() => handleCompleteOrder(order.id)}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold transition-all"
-                        >
-                          ✓ Complete
-                        </button>
-                      )}
-                    </div>
+            <div className="divide-y divide-gray-700">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-bold text-white text-sm font-mono">{order.customerPhone}</p>
+                    <p className="text-xs text-gray-400">{order.network.name} · {order.package.amount}</p>
                   </div>
-                ))}
-              </div>
-            </>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-white text-sm">{CURRENCY.symbol}{order.amount}</p>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold capitalize ${
+                      order.status === 'completed' ? 'bg-green-900 text-green-300'
+                      : order.status === 'processing' ? 'bg-blue-900 text-blue-300'
+                      : 'bg-yellow-900 text-yellow-300'
+                    }`}>
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </main>
